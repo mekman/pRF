@@ -30,9 +30,12 @@ The analysis is based on [MrVista](https://github.com/vistalab) and requires [SP
 If you use these scripts please consider citing the following articles:
 
 ```
-Dumoulin & Wandell (2008). Population receptive field estimates in human visual cortex. Neuroimage 39, 647–660. http://www.sciencedirect.com/science/article/pii/S1053811907008269
+Dumoulin & Wandell (2008). Population receptive field estimates in human visual
+cortex. Neuroimage 39, 647–660. http://www.sciencedirect.com/science/article/pii/S1053811907008269
 
-Ekman, Kok & de Lange (2017). Time-compressed preplay of anticipated events in human primary visual cortex. *Nature Communications*. 8, 15276 doi: 10.1038/ncomms15276 https://www.nature.com/articles/ncomms15276
+Ekman, Kok & de Lange (2017). Time-compressed preplay of anticipated events in
+human primary visual cortex. *Nature Communications*. 8, 15276
+doi: 10.1038/ncomms15276 https://www.nature.com/articles/ncomms15276
 ```
 
 ## Related
