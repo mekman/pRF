@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/92933745.svg)](https://zenodo.org/badge/latestdoi/92933745)
+
 A collection of pRF scripts. The code was used for the pRF-mapping in:
 
 * Ekman, Kok & de Lange (2017). Time-compressed preplay of anticipated events in human primary visual cortex. *Nature Communications*. 8, 15276 doi: 10.1038/ncomms15276 https://www.nature.com/articles/ncomms15276
