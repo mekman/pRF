@@ -1,0 +1,37 @@
+8
+
+dir
+19
+svn+ssh://benharvey@fsspsnasterix.fss.uu.nl/var/svn/repos/MRstim
+svn+ssh://benharvey@fsspsnasterix.fss.uu.nl/var/svn/repos/MRstim
+
+
+
+2010-01-18T14:07:21.760558Z
+19
+serge
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+7c408524-464e-4a79-81ad-a1c6686563e9
+
+trunk
+dir
+
+branches
+dir
+
+tags
+dir
+

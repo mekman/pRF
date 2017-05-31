@@ -1,0 +1,46 @@
+8
+
+dir
+19
+svn+ssh://benharvey@fsspsnasterix.fss.uu.nl/var/svn/repos/MRstim/trunk/Displays
+svn+ssh://benharvey@fsspsnasterix.fss.uu.nl/var/svn/repos/MRstim
+
+
+
+2010-01-05T11:09:59.345164Z
+14
+benharvey
+
+
+svn:special svn:externals svn:needs-lock
+
+
+
+
+
+
+
+
+
+
+
+7c408524-464e-4a79-81ad-a1c6686563e9
+
+3T_projector_UMC_800x600
+dir
+
+builtin
+dir
+
+7T_projector_UMC_1024x768
+dir
+
+3T_projector_uncalib
+dir
+
+7T_projector_UMC_800x600
+dir
+
+from3t_7T_projector_UMC_1024x768_from3T
+dir
+

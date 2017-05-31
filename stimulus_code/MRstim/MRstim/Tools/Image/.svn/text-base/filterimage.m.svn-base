@@ -1,0 +1,32 @@
+function [imout]=filterimage(imagein,freqrange);
+% filterimage - hard edge bandpass and orientation filter an image
+
+padd=size(imagein,1)*3;
+
+% circular coords
+coords=ceil(-padd/2:padd/2-1);
+[x,y]=meshgrid(coords);
+[th,r]=cart2pol(x,y);
+
+% scale r
+r = r./(size(imagein,1)./2);
+th = (th+pi)./(2.*pi).*360;
+
+% scale input
+meanf = mean(imagein(:));
+fftimagein = fftshift( fft2(imagein-meanf,padd,padd) );
+imout = zeros(size(imagein,1),size(imagein,1),size(freqrange,1));
+
+% make filters
+filt = ((r>=freqrange(1,1) & r<=freqrange(1,2)) & ...
+    (th<=freqrange(2,2) | th>=360+freqrange(2,1))) | ...
+    ((r>=freqrange(1,1) & r<=freqrange(1,2)) & ...
+    (th<=180 - freqrange(2,1) & th>=180-freqrange(2,2)));
+
+%figure;imagesc(filt);
+
+% filter
+imouttmp = real(ifft2(fftshift( fftimagein .*filt ),padd,padd))+meanf;
+imout = imouttmp(1:size(imagein,1),1:size(imagein,2));
+
+return

@@ -1,0 +1,81 @@
+function im=synthetic_contours(sizeInPix,sizeInDeg,contourWidthInDeg,orientationInDeg,orientationBPinDeg,circularWindow);
+% im = synthetic_contours(sizeInPix,sizeInDeg,contourWidthInDeg,orientationBPinDeg);
+%
+
+% 2009/10 SOD: wrote it.
+
+% input handling
+if ~exist('sizeInPix','var') || isempty(sizeInPix) 
+    sizeInPix = 600;
+end
+if ~exist('sizeInDeg','var') || isempty(sizeInDeg) 
+    sizeInDeg = 12.5;
+end
+if ~exist('contourWidthInDeg','var') || isempty(contourWidthInDeg) 
+    contourWidthInDeg = 1/3; % 3 cycles per degree
+end
+if ~exist('orientationBPinDeg','var') || isempty(orientationBPinDeg) 
+    orientationBPinDeg = 30;
+end
+if ~exist('orientationInDeg','var') || isempty(orientationInDeg) 
+    orientationInDeg = 0;
+end
+if ~exist('circularWindow','var') || isempty(circularWindow) 
+    circularWindow=1;
+end
+% if orientationInDeg>360
+%     orientationInDeg=orientationInDeg-360;
+% end
+
+% derived parameters
+contourWidthInPix = round(contourWidthInDeg ./ sizeInDeg.*sizeInPix);
+
+% make image larger to prevent edge effects
+sizeInPix=sizeInPix+contourWidthInPix*2;
+sizeInDeg=sizeInDeg+contourWidthInDeg*2;
+
+% make orientation and bandpass filter 
+oriFilter = [0 (1./(sizeInPix./2).*((1/contourWidthInDeg*sizeInDeg)));...
+            [-1 1].*orientationBPinDeg./2];
+        
+% random image from 0-1
+im = rand(sizeInPix).*2-1;
+
+% filter image
+im = filterimage(im,oriFilter);
+
+% binary
+im = sign(im);
+
+% create edge mask
+mask = filter2(makecircle(contourWidthInPix),im);
+mask = mask~=min(mask(:)) & mask~=max(mask(:));
+
+% mask out edges
+im = im.*mask;
+
+% crop out actual image
+im = im(1+contourWidthInPix:sizeInPix-contourWidthInPix,1+contourWidthInPix:sizeInPix-contourWidthInPix);
+
+% create soft circular mask
+mask = makecircle(size(im,1)-contourWidthInPix.*2,size(im,1),contourWidthInPix);
+
+% place in circular window with faded edge
+if circularWindow
+    im = im.*mask;
+end
+% rotate
+im = imrotate(im,orientationInDeg,'nearest','crop');
+
+
+if ~nargout
+    disp(imagestat(im,[-1 1],mask==1));
+    figure;imagesc(im);colormap(gray);axis image off;
+end
+
+return
+
+
+
+
+

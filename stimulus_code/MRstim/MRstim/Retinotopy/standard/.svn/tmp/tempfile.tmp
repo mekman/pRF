@@ -1,0 +1,852 @@
+ function params = setRetinotopyParams(expName, params)
+% setRetinotopyParams - set parameters for different retinotopy scans 
+%
+% params = setRetinotopyParams([expName], [params])
+%
+% Sets parameter values for the specified expName.  
+%
+% params is a struct with at least the following fields:
+%  period, numCycles, tr, interleaves, framePeriod, startScan, prescanDuration
+%
+% Returns the parameter values in the struct params.
+% If called with no arguments, params will be a cell array listing
+% all the experiment names that it is configured to do.
+%
+% 99.08.12 RFD rewrote WAP's code with a cleaner wrapper.
+% 05.07.04 SOD ported to OSX; several changes
+
+% the following should match those listed in the switch statement below
+% expNames = {'rotating wedge (90deg duty)','rotating wedge (90deg duty) Reverse',...
+%             'rotating wedge (45deg duty)','rotating wedge (45deg duty) Reverse', ...
+%             'rotating wedge with blanks (45deg duty)','rotating wedge with blanks (45deg duty) Reverse', ...
+% 			'expanding ring (180deg duty)', 'contracting ring (180deg duty)', ...
+% 			'expanding ring (45% duty)', 'contracting ring (45% duty)', ...
+% 			'expanding ring with blanks (45% duty)', 'contracting ring with blanks (45% duty)', ...
+% 			'full-field, on-off', 'full-field, drift-static', ...
+% 			'center-surround','center-surround (0-1deg/14-20deg)','center (0-1deg)'};
+expNames = {'rotating wedge (45deg duty)','rotating wedge (90deg duty)','rotating wedge (45deg duty) Reverse', ...
+            'rotating wedge with blanks (45deg duty)','rotating wedge with blanks (45deg duty) Reverse', ...
+			'expanding ring (45% duty)','expanding ring (90% duty)', 'contracting ring (45% duty)', ...
+			'expanding ring with blanks (45% duty)', 'contracting ring with blanks (45% duty)', ...
+			'full-field, on-off', 'full-field, on-off (impulse)','full-field, drift-static','full-field, red/green',...
+            ...%'full-field, red/green - red only','full-field, red/green - green only',...
+            ...%'full-field, red/green - red only with blanks','full-field, red/green - green only with blanks',...
+			...%'center-surround','center-surround (0-1deg/14-20deg)','center (0-1deg)',...
+            ...%'2 rings',...
+            '8 bars','8 bars (slow)','8 bars with blanks','8 bars with blanks (lr)','8 bars with blanks (lr 2)','8 bars with blanks (attn)','8 bars (sinewave)',...
+            '8 bars (LMS)','8 bars (LMS) with blanks',...%'8 bars (L-M)','8 bars (S)',...
+            '8 bars with blanks (ecc scaled)','8 bars (letters)', '8 bars with blanks (lr ONLY)', '8 bars with blanks (lr ONLY random)', '8 bars with blanks (lr ONLY wrap)', '8 bars with blanks (lr ONLY unwrap)', ...
+            '8 bars with blanks contours (0)','8 bars with blanks contours (90)','8 bars with blanks contours (-45)','8 bars with blanks contours (+45)','8 bars with blanks contours (random)','images.circleimage','Full-field full', ...
+            'Retinotopy Images','Natural Images'};
+
+if ~exist('expName', 'var')
+	params = expNames;
+	return;
+end
+disp(['[' mfilename ']:Setting stimulus parameters for ' expName '.']);
+
+% some more definitions
+if isfinite(params.interleaves),
+    params.framePeriod = params.tr*params.interleaves;
+else,
+    params.framePeriod = params.tr;
+end;
+params.startScan   = 0;
+params.quitProgKey = KbName('q');
+
+
+%disp('flipping images to simulate 3T projector view');
+%params.flipUD = 1;
+%params.flipLR = 1;
+
+%--------------------------------------
+% background id, you can change this for manual calibration when only
+% having three intensities (black, white and gray=bg)
+bg = 128;
+%bg = 144;
+%--------------------------------------
+
+if ~isempty(params.calibration),
+    params.display = loadDisplayParams('displayName',params.calibration);
+    disp(sprintf('[%s]:loading calibration from: %s.',mfilename,params.calibration));
+else,
+    params.display.screenNumber   = max(Screen('screens'));
+    [width, height]=Screen('WindowSize',params.display.screenNumber);
+    params.display.numPixels  = [width height];
+    params.display.dimensions = [24.6 18.3];
+    params.display.pixelSize  = min(params.display.dimensions./params.display.numPixels);
+    params.display.distance   = 43.0474;%40;
+    params.display.frameRate  = 60;
+    params.display.cmapDepth  =  8;
+    params.display.gammaTable = [0:255]'./255*[1 1 1];
+    params.display.gamma      = params.display.gammaTable;
+    params.display.backColorRgb   = [bg bg bg 255];
+    params.display.textColorRgb   = [255 255 255 255];
+    params.display.backColorRgb   = bg;
+    params.display.backColorIndex = bg;
+    params.display.maxRgbValue    = 255;
+    params.display.stimRgbRange   = [0 255];
+    params.display.bitsPerPixel   = 32;
+    disp(sprintf('[%s]:no calibration.',mfilename));    
+end;
+params.display.quitProgKey = params.quitProgKey;
+
+if max(Screen('screens')) < params.display.screenNumber,
+    disp(sprintf('[%s]:resetting screenNumber %d -> %d.',mfilename,...
+        params.display.screenNumber,max(Screen('screens'))));
+    params.display.screenNumber   = max(Screen('screens'));
+end;
+
+% IMPORTANT: Set stereoFlag to 1 if using stereo display.  This     %
+% will affect both the stimulus presentation and the fixation point %
+params.stereoFlag = 0;
+params.display.stereoFlag = 0;
+
+
+% Flickering fixation point parameters
+%
+% this controls the duration of the fix flicks, in frames.
+% Set it to 0 to turn get no flicks.
+params.fixFlickFrames = 5;
+% this controls the density of the flicks, per frame.
+% Thus, .01 will, on average, flick once every 100 frames.
+params.fixFlickFreq = .01;
+
+params.dispString = [expName '.  Please watch the fixation square.'];
+
+%
+% Color parameters
+%
+params.backRGB.dir = [1 1 1]';	% These two values are your
+params.backRGB.scale = 0.5;		% standard default gray.
+params.stimLMS.dir = [1 1 1]';
+params.stimLMS.scale = 1.0;
+%bk = findName(params.display.reservedColor,'background');
+%params.display.reservedColor(bk).gunVal = (params.display.numColors-1) * ...
+%								params.backRGB.scale*params.backRGB.dir';
+
+%
+% Set some common defaults
+%
+
+
+params.temporal.frequency = 2; %Hz
+params.temporal.motionSteps = 10;
+if ischar(params.stimSize),
+    if isfield(params.display, 'Rect')
+        params.radius = pix2angle(params.display, floor(min((params.display.Rect(3)-params.display.Rect(1))/2, (params.display.Rect(4)-params.display.Rect(2))/2))); 
+    else
+        params.radius = pix2angle(params.display,floor(min(params.display.numPixels)/2));
+    end
+else
+    params.radius = params.stimSize;	
+end;
+
+if isfield(params.display, 'Rect')
+    tmpy=(params.display.Rect(4)+params.display.Rect(2))/2;
+    tmpx=(params.display.Rect(3)+params.display.Rect(1))/2;
+    tmpsize=angle2pix(params.display, params.radius);
+    params.display.Rect=[tmpx-tmpsize tmpy-tmpsize tmpx+tmpsize tmpy+tmpsize];
+    params.display.Rect=params.display.Rect(:);
+end
+
+disp(sprintf('[%s]: Stimulus size: %.1f degrees / %d pixels.',...
+    mfilename,params.radius,angle2pix(params.display,2*params.radius)));
+% front projector=16; back projection=3;
+params.seqDirection = 0;	% 0 or 1- just plays the movie backwards if set to 1
+
+% Wedge parameters
+params.innerRad = 0;		% Non-zero for annular wedge condition (deg)
+params.wedgeDeg = 90;		% Wedge polar angle (deg)
+params.subWedgeDeg = 15;	% Sub wedge polar angle (deg) 
+
+% Ring parameter - 8 for a radius=16 stim gives a 180 degree duty cycle
+params.ringDeg = params.radius/2;			% Ring radius/width (deg)
+
+% Wedge and ring parameters
+params.subRingDeg = 1;			% 1/2 radial spatial freq (deg)
+
+params.dynamicStaticFlag = 0;	% if set, half the time will be a static stim
+
+params.numImages = params.period/params.framePeriod;  % Number of samples of the image (i.e. per cycle)
+params.duration = params.period/params.numImages;
+
+% insert blanks
+params.insertBlanks.do = 0;
+params.insertBlanks.freq = 4;
+params.insertBlanks.phaseLock = 0;
+
+switch expName
+case 'rotating wedge (90deg duty)',
+	params.type = 'wedge';		% Set to 'wedge' or 'ring'
+	params.wedgeDeg = 90;
+	params.seqDirection = 0;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'rotating wedge (90deg duty) Reverse',
+	params.type = 'wedge';		% Set to 'wedge' or 'ring'
+	params.wedgeDeg = 90;
+	params.seqDirection = 1;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'rotating wedge (45deg duty)',
+	params.type = 'wedge';
+	params.wedgeDeg = 45;
+	params.seqDirection = 0;
+	params.innerRad = 0;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'rotating wedge (45deg duty) Reverse',
+	params.type = 'wedge';
+	params.wedgeDeg = 45;
+	params.seqDirection = 1;
+	params.innerRad = 0;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'rotating wedge with blanks (45deg duty)',
+	params.type = 'wedge';
+	params.wedgeDeg = 45;
+	params.seqDirection = 0;
+	params.innerRad = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'rotating wedge with blanks (45deg duty) Reverse',
+	params.type = 'wedge';
+	params.wedgeDeg = 45;
+	params.seqDirection = 1;
+	params.innerRad = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'expanding ring (90% duty)',
+	params.type = 'ring';
+	params.ringDeg = params.radius/4;
+	params.seqDirection = 0;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'contracting ring (180deg duty)',
+	params.type = 'ring';
+	params.ringDeg = params.radius/2;
+	params.seqDirection = 1;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'expanding ring (45% duty)',
+	params.type = 'ring';
+	params.ringDeg = params.radius/8;
+	params.seqDirection = 0;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+case 'contracting ring (45% duty)',
+	params.type = 'ring';
+	params.ringDeg = params.radius/8;
+	params.seqDirection = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+case 'expanding ring with blanks (45% duty)',
+	params.type = 'ring';
+	params.ringDeg = params.radius/8;
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+case 'contracting ring with blanks (45% duty)',
+	params.type = 'ring';
+	params.ringDeg = params.radius/8;
+	params.seqDirection = 1;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+case 'full-field, on-off',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = params.radius;
+	params.surroundInnerRad = params.radius;
+	params.surroundOuterRad = params.radius;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'full-field, on-off (impulse)',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = params.radius;
+	params.surroundInnerRad = params.radius;
+	params.surroundOuterRad = params.radius;
+	params.numImages = 2;
+	params.duration  = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.impulse   = input('Please enter impulse time (sec): ');
+    params.insertBlanks.do = 1;    
+    params.insertBlanks.freq = params.numCycles;
+    params.insertBlanks.phaseLock = 1;
+case 'full-field, drift-static',
+	params.type = 'ring';
+	params.dynamicStaticFlag = 1;	% if set, half the time will be a static stim
+	params.innerRad = 0;		% Non-zero for annular wedge condition (deg)
+	params.ringDeg = params.radius;			% Ring radius/width (deg)
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'center-surround',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0.2;
+	params.centerOuterRad = 4;
+	params.surroundInnerRad = 6%14;
+	params.surroundOuterRad = 20;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'center-surround (0-1?/14-20?)',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = 1;
+	params.surroundInnerRad = 14;
+	params.surroundOuterRad = 20;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'center (0-1?)',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = 1;
+	params.surroundInnerRad = 20;
+	params.surroundOuterRad = 20;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+case 'full-field, red/green',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = params.radius;
+	params.surroundInnerRad = 0;
+	params.surroundOuterRad = params.radius;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.contrast    = 0.5;%[1 0.1]; % red blue
+    params.startScan   = 0;
+
+case 'full-field, red/green - green only',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = params.radius*2;
+	params.surroundInnerRad = 0;
+	params.surroundOuterRad = 0;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.contrast    = 0.5;%[1 0.1]; % red blue
+    params.startScan   = 0;
+
+case 'full-field, red/green - red only',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = 0;
+	params.surroundInnerRad = 0;
+	params.surroundOuterRad = params.radius;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.contrast    = 0.5;%[1 0.1]; % red blue
+    params.startScan   = 0;
+
+case 'Full-field full',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = 0;
+	params.surroundInnerRad = 0;
+	params.surroundOuterRad = params.radius;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.contrast    = 0.5;%[1 0.1]; % red blue
+    params.startScan   = 0;
+    
+case 'full-field, red/green - green only with blanks',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = params.radius;
+	params.surroundInnerRad = 0;
+	params.surroundOuterRad = 0;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.contrast    = 0.5;%[1 0.1]; % red blue
+    params.insertBlanks.do = 1;
+    params.insertBlanks.freq = params.numCycles;
+    params.startScan   = 0;
+
+case 'full-field, red/green - red only with blanks',
+	params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = 0;
+	params.surroundInnerRad = 0;
+	params.surroundOuterRad = params.radius;
+	params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.contrast    = 0.5;%[1 0.1]; % red blue
+    params.insertBlanks.do = 1;
+    params.insertBlanks.freq = params.numCycles;
+    params.startScan   = 0;
+
+case '2 rings',
+	params.type = 'ring';
+	params.ringDeg = params.radius/8;
+	params.seqDirection = 0;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+    params.numCycles = 5; % second is 5+2
+    params.period    = 28*params.tr*params.numCycles; 
+    params.numImages = params.period/params.framePeriod;
+
+case '8 bars',
+	params.type = 'bar';
+	params.ringDeg = params.radius./2;%params.radius/4;
+	params.seqDirection = 0;
+    params.insertBlanks.do = 0;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+case '8 bars (slow)',
+	params.type = 'bar';
+	params.ringDeg = params.radius/3;
+	params.seqDirection = 0;
+    params.insertBlanks.do = 0;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+    params.display.stimRgbRange   = [1 254];
+
+case '8 bars with blanks',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; % HW1 used radius/2
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+
+case '8 bars with blanks (lr)',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+
+case '8 bars with blanks (lr 2)',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+
+case '8 bars with blanks contours (0)', 
+	params.type = 'bar';
+	params.ringDeg = params.radius./3; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.temporal.motionSteps = 10;
+    params.contour.contourOrientation = 0;
+    params.contour.contourBandpass = 30;
+case '8 bars with blanks contours (90)', 
+	params.type = 'bar';
+	params.ringDeg = params.radius./3; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.temporal.motionSteps = 10;
+    params.contour.contourOrientation = 90;
+    params.contour.contourBandpass = 30;
+case '8 bars with blanks contours (-45)', 
+	params.type = 'bar';
+	params.ringDeg = params.radius./3; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.temporal.motionSteps = 10;
+    params.contour.contourOrientation = 135;
+    params.contour.contourBandpass = 30;
+case '8 bars with blanks contours (+45)', 
+	params.type = 'bar';
+	params.ringDeg = params.radius./3; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.temporal.motionSteps = 10;
+    params.contour.contourOrientation = 45;
+    params.contour.contourBandpass = 30;
+case '8 bars with blanks contours (random)', 
+	params.type = 'bar';
+	params.ringDeg = params.radius./3; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.temporal.motionSteps = 10;
+    params.contour.contourOrientation = 0;
+    params.contour.contourBandpass = 180;
+
+
+case '8 bars with blanks (ecc scaled)',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+
+case '8 bars with blanks (attn)',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4;
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+    params.attn.contrast = [1 1; % normal stim fix
+                           .4 .5]; % other stim fix
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+
+case '8 bars (sinewave)',
+	params.type = 'bar';
+	params.ringDeg = params.radius/3;
+	params.seqDirection = 0;
+    params.insertBlanks.do = 0;
+    params.numSubRings = input('How many cycles/degree?: ');
+    % reset motionSteps (flicker)
+    params.temporal.motionSteps = 2;
+%   params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+case '8 bars (LMS)',
+	params.type = 'bar';
+	params.ringDeg = params.radius/3;
+    params.seqDirection = 0;
+    params.insertBlanks.do = 0;
+    params.numSubRings = 1;
+    params.temporal.motionSteps = 8;
+
+case '8 bars (LMS) with blanks',
+    params.type = 'bar';
+    params.ringDeg = params.radius/3;
+    params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = 1;
+    params.temporal.frequency = 2; %Hz
+    params.temporal.motionSteps = 8;
+case '8 bars with blanks (lr ONLY)',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; 
+    params.insertBlanks.freq = params.numCycles;
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+case 'Retinotopy Images',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; 
+    params.insertBlanks.freq = params.numCycles.*4;
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+case 'Natural Images',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; 
+    params.insertBlanks.freq = params.numCycles.*4;
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);    
+case '8 bars with blanks (lr ONLY random)',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.insertBlanks.freq = params.numCycles;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+ case '8 bars with blanks (lr ONLY wrap)',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.insertBlanks.freq = params.numCycles;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+case '8 bars with blanks (lr ONLY unwrap)',
+	params.type = 'bar';
+	params.ringDeg = params.radius./4; 
+	params.seqDirection = 0;
+    params.insertBlanks.do = 1;
+    params.insertBlanks.freq = params.numCycles;
+    params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+    
+case 'images.circleimage'
+    params.type = 'center-surround';
+	params.centerInnerRad = 0;
+	params.centerOuterRad = params.radius;
+	params.surroundInnerRad = 0;
+	params.surroundOuterRad = 0;
+    params.insertBlanks.do = 1;
+    params.insertBlanks.freq = params.numCycles;
+    
+    
+    params.numImages = 2;
+	params.duration = params.period/params.numImages;
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+    params.contrast    = 0.5;%[1 0.1]; % red blue
+    params.startScan   = 0;
+    
+%    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+
+    %     params.display.gamma = create_LMScmap(params.display,[1 1 1]);%.*.5); 
+%     if size(params.display.gamma,1)~=256,
+%         params.display.gamma = params.display.gamma(round(linspace(1,size(params.display.gamma,1),255)),:);
+%         params.display.gamma(256,:) = [1 1 1];
+%     end;
+%     params.display.gammaTable = round(params.display.gamma.*256)+1;
+% case '8 bars (L-M)',
+% 	params.type = 'bar';
+% 	params.ringDeg = params.radius/3;
+% 	params.seqDirection = 0;
+%     params.insertBlanks.do = 0;
+%     params.numSubRings = 1;
+%     params.temporal.motionSteps = 8;
+%     params.display.gamma = create_LMScmap(params.display,[-1 1 0].*.06); 
+%     if size(params.display.gamma,1)~=256,
+%         params.display.gamma = params.display.gamma(round(linspace(1,size(params.display.gamma,1),255)),:);
+%         params.display.gamma(256,:) = [1 1 1];
+%     end;
+%     params.display.gammaTable = round(params.display.gamma.*256)+1;
+% case '8 bars (S)',
+% 	params.type = 'bar';
+% 	params.ringDeg = params.radius/3;
+% 	params.seqDirection = 0;
+%     params.insertBlanks.do = 0;
+%     params.numSubRings = 1;
+%     params.temporal.motionSteps = 8;
+%     params.display.gamma = create_LMScmap(params.display,[0 0 1].*.5); 
+%     if size(params.display.gamma,1)~=256,
+%         params.display.gamma = params.display.gamma(round(linspace(1,size(params.display.gamma,1),255)),:);
+%         params.display.gamma(256,:) = [1 1 1];
+%     end;
+%     params.display.gammaTable = round(params.display.gamma.*256)+1;
+    
+case '8 bars (letters)',
+    params.temporal.numStimChanges = 2;
+    params.temporal.numNoiseChanges = 4;
+    params.stimulusType = 'letters';
+    
+case 'new',
+	% a convenient place for specifying some params to test
+	params.type = 'ring';
+	params.backRGB.dir = [1 1 1]';
+	params.backRGB.scale = 0.5;
+	params.stimLMS.dir = [1 1 1]';
+	params.stimLMS.scale = 1;
+	params.temporal.frequency = 4;
+	params.radius = 16;			% Stimulus radius (deg; max 16)
+	params.innerRad = 0;		% Non-zero for annular wedge condition (deg)
+	params.wedgeDeg = 90;		% Wedge polar angle (deg)
+	params.subWedgeDeg = 15;	% Sub wedge polar angle (deg) 
+	params.ringDeg = params.radius/2;			% Ring radius/width (deg)
+	params.subRingDeg = 0.5;			% 1/2 radial spatial freq (deg)
+    params.numSubRings = (params.radius)/(2*params.subRingDeg);
+
+
+otherwise,
+	error('Unknown expName!');
+end
+
+
+% stimulus on/off presentation
+if params.insertBlanks.do,
+%    bn = questdlg('Phase lock stimulus on/off cycle?','Blanking','Yes','No','No');
+%	if strmatch(bn,'Yes'),
+%		params.insertBlanks.phaseLock = 1;
+%    else,
+		params.insertBlanks.phaseLock = 0;
+%    end;
+end;
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%																	%
+% Fixation parameters												%
+%																	%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+params.display.fixType        = params.fixation; % disk or largeCross
+params.display.fixSizePixels  = 6;%3;%6;12
+switch(lower(params.display.fixType))
+    case {'disk','double disk'}
+        params.display.fixColorRgb    = [255 0 0 255;...
+                                         0 255 0 255];%172 0 0  255];
+        if strcmpi(expName,'8 bars with blanks (attn)')
+            params.display.fixColorRgb    = [255 0 0 255;...
+                                             255 0 0 255];%172 0 0  255];
+            params.display.fixColorRgb(2,1)=...
+            round(128+128.*params.attn.contrast(2,2))-1;
+        end
+        
+%        params.display.fixColorRgb    = [255 255 255 255;...
+%                                         255 255 255 255];
+        dim.x = params.display.numPixels(1);
+        dim.y = params.display.numPixels(2);
+        params.display.fixX = round(dim.x./2);
+        params.display.fixY = round(dim.y./2);
+        
+        %FOR 7T PROJECTOR WITH BIGGEST POSSIBLE STIMULI
+        %params.display.fixY=params.display.fixY+115;
+        
+       if isfield(params.display, 'Rect')
+            params.display.fixY=round((params.display.Rect(2)+params.display.Rect(4))/2);
+        end
+    case {'disk and markers'}
+        params.display.fixColorRgb    = [255 0 0 255;...
+                                         0 255 0 255];%172 0 0  255];
+        dim.x = params.display.numPixels(1);
+        dim.y = params.display.numPixels(2);
+        params.display.fixX = round(dim.x./2);
+        params.display.fixY = round(dim.y./2);
+        step_startx = linspace(params.ringDeg./2,params.radius,ceil(21./2))-(params.ringDeg./2);
+    % add the negative starts from fixation, define as outeredge
+        step_startx = [fliplr(-1.*step_startx(2:end)) step_startx]-(params.ringDeg./2);
+        step_startx = angle2pix(params.display, step_startx);
+        startx=ceil(step_startx(14));
+        params.display.markerX=[params.display.fixX+startx params.display.fixX+startx+angle2pix(params.display, params.ringDeg) params.display.fixX-startx params.display.fixX-startx-angle2pix(params.display, params.ringDeg)];
+        %[dim.x-((dim.x-dim.y)/2)-round(angle2pix(params.display, (params.radius-params.ringDeg./2)./1.5+params.ringDeg./2))-angle2pix(params.display, params.ringDeg./2) dim.x-((dim.x-dim.y)/2)-round(angle2pix(params.display, (params.radius-params.ringDeg./2)./1.5+params.ringDeg./2))+angle2pix(params.display, params.ringDeg./2)];
+        %params.display.markerX=[100 200];
+        
+        params.display.markerY=[0 5 dim.y-5 dim.y];
+        params.display.markerColor=[255 255 255];
+        if isfield(params.display, 'Rect')
+            params.display.fixY=round((params.display.Rect(2)+params.display.Rect(4))/2);
+        end
+    case {'small cross +'}
+        params.display.fixColorRgb    = [255 0 0 255;...
+                                         0 255 0 255];
+        dim.x = params.display.numPixels(1);
+        dim.y = params.display.numPixels(2);
+        params.display.fixX = round(dim.x./2);
+        params.display.fixY = round(dim.y./2);
+        if isfield(params.display, 'Rect')
+            params.display.fixY=round((params.display.Rect(2)+params.display.Rect(4))/2);
+        end       
+        
+    case {'large cross' , 'largecross'},
+        params.display.fixColorRgb    = [255 255 0 255;...
+                                         255 255 0 255];
+        params.display.fixSizePixels  = 18;
+        dim.x = params.display.numPixels(1);
+        dim.y = params.display.numPixels(2);
+        dim.ycoord = [1:dim.y dim.y:-1:1] ; % assume ydim is smallest
+        dim.xcoord = [1:dim.y 1:dim.y] + round(-dim.y/2+dim.x/2);
+        params.display.fixCoords = [dim.xcoord;dim.ycoord];
+
+    case {'double large cross' , 'doublelargecross'},
+        params.display.fixColorRgb    = [255 255 0 255;...
+                                         255 255 0 255];
+        params.display.fixSizePixels{1}= 12;
+        dim.x = params.display.numPixels(1);
+        dim.y = params.display.numPixels(2);
+        dim.ycoord = [1:dim.y dim.y:-1:1] ; % assume ydim is smallest
+        dim.xcoord = [1:dim.y 1:dim.y] + round(-dim.y/2+dim.x/2);
+        params.display.fixCoords{1} = [dim.xcoord;dim.ycoord];
+        
+    case {'large cross x+' , 'largecrossx+'},
+        params.display.fixColorRgb    = [255 255 0 255;...
+                                         255 255 0 255];
+        params.display.fixSizePixels  = round([1 sqrt(2)].*12);
+        dim.x = params.display.numPixels(1);
+        dim.y = params.display.numPixels(2);
+        dim.ycoord = [1:dim.y dim.y:-1:1] ; % assume ydim is smallest
+        dim.xcoord = [1:dim.y 1:dim.y] + round(-dim.y/2+dim.x/2);
+        params.display.fixCoords{1} = [dim.xcoord;dim.ycoord];
+        dim.x = params.display.numPixels(1);
+        dim.y = params.display.numPixels(2);
+        dim.ycoord = [1:dim.y [1:dim.y].*0+round(dim.y./2)] ; % assume ydim is smallest
+        dim.xcoord = [[1:dim.y].*0+round(dim.y./2) 1:dim.y] + round(-dim.y/2+dim.x/2);
+        params.display.fixCoords{2} = [dim.xcoord;dim.ycoord];
+
+    case {'left disk', 'left disk double'},
+        params.display.fixColorRgb    = [255 0 0 255;...
+                                         128 0 0 255];
+        dim.x = params.display.numPixels(1);
+        dim.y = params.display.numPixels(2);
+        params.display.fixX = round(dim.x./2) - floor(min(max(dim.x),max(dim.y))./2);
+        params.display.fixY = round(dim.y./2);
+        %if params.display.numPixels(1)==1024
+        if strcmp(params.display.position,'7T UMC scanner rear-to-front')
+            params.display.fixColorRgb    = [255 255 255 255;...
+                                            0 0 0 255];
+            params.display.fixX = round((dim.x./2) - ((dim.x./2)*0.7));%round((params.display.Rect(4)-params.display.Rect(2))/3);
+            params.display.fixY= round(dim.y./2) + 115;%round((params.display.Rect(2)-params.display.Rect(4))/2.4);
+        end
+    case {'right disk','right disk double'},
+        params.display.fixColorRgb    = [255 0 0 255;...
+                                         0 255 0 255];%172 0 0  255];
+        dim.x = params.display.numPixels(1);
+        dim.y = params.display.numPixels(2);
+        params.display.fixX = round(dim.x./2) + floor(min(max(dim.x),max(dim.y))./2);
+        params.display.fixY = round(dim.y./2);
+        if strcmp(params.display.position,'7T UMC scanner rear-to-front')
+            params.display.fixColorRgb    = [255 255 255 255;...
+                                            0 0 0 255];
+            params.display.fixX = round((dim.x./2) + ((dim.x./2)*0.7));%round((params.display.Rect(4)-params.display.Rect(2))/3);
+            params.display.fixY= round(dim.y./2) + 115;
+        end
+    otherwise,
+        error('Unknown fixationType!');
+end
+
+% if red/green we make the fixation white so it can be seen in any
+% condition
+switch expName
+    case {'full-field, red/green',...
+          'full-field, red/green - red only',...
+          'full-field, red/green - green only',...
+          'full-field, red/green - red only with blanks',...
+          'full-field, red/green - green only with blanks'}
+      params.display.fixColorRgb    = [0 0 0 255;...
+                                       255 255 255 255];
+%     case {'8 bars','8 bars (slow)','8 bars with blanks','8 bars (sinewave)'}
+%         params.display.fixColorRgb    = [  0   0   0 255;...
+%                                          255 255 255 255];
+%         params.display.fixSizePixels  = 3;
+%     case {'8 bars (slow)'}
+%         params.display.fixColorRgb    = [  0   0   0 255;...
+%                                          255 255 255 255];
+%         params.display.fixSizePixels  = 3;
+    case {'8 bars (LMS)','8 bars (LMS) with blanks'}
+        params.display.fixColorRgb    = [255 255 255 255;...
+                                         255 255 255 255];
+        params.display.fixSizePixels  = 3;
+    case {'8 bars with blanks contours (0)','8 bars with blanks contours (90)','8 bars with blanks contours (-45)','8 bars with blanks contours (+45)','8 bars with blanks contours (random)'}
+        params.display.fixColorRgb    = [255 0 0 255;...
+                                         255 0 0 255];
+
+end;
+
+
+params.fix.task               = 'Detect fixation change';
+params.fix.colorRgb           = params.display.fixColorRgb;
+params.fix.responseTime       = [.01 3]; % seconds
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%																	%
+% Calculations (not to be updated by user)							%
+%																	%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+params.ringWidth=params.ringDeg;
+
+% Polar angle of wedge in radians
+params.wedgeWidth = params.wedgeDeg * (pi/180);
+
+% Number of rings in each wedge
+%params.numSubRings = (params.radius-params.innerRad)/(2*params.subRingDeg);
+%params.numSubRings = (params.radius-params.innerRad)/(params.radius);
+%params.numSubRings = (params.radius)/(2*params.subRingDeg);
+
+% Number of wedges in each ring
+params.numSubWedges = params.wedgeDeg/(2*params.subWedgeDeg);
+
+% duration of each image (seconds) 
+params.imageDuration = params.period / params.numImages; 
+
+% Duration of params
+params.scanDuration = params.period * params.numCycles + params.prescanDuration;
+
+% some checks, must be done before we reset certain params
+retParamsCheck(params);
+
+% ***HACK!  We'll let makeRetinotopy add the prescan stuff
+params.ncycles = params.numCycles;
+params.prescanDuration = params.prescanDuration;
+params.period = params.period;
+
+

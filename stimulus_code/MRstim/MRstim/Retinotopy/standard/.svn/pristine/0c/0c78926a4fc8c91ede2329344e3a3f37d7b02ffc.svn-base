@@ -1,0 +1,282 @@
+function stimulus = makeRetinotopyStimulus_naturalImages(params)
+% makeRetinotopyStimulus - make various retinotopy stimuli
+%
+% stimulus = makeRetinotopyStimulus_bars(params)
+%
+% Matlab code to generate various retinotopy stimuli
+% Generates one full cycle, as well as the sequence for the entire scan.
+%
+% 99.09.15 RFD: I fixed the sequence generation algorithm so that
+%   timing is now frame-accurate.  The algorithm now keeps track
+%   of timing error that accumulates due to rounding to the nearest
+%   frame and corrects for that error when it gets to be more than 
+%   half a frame.  
+%   The algorithm also randomely reverses the drift direction, rather
+%   than reversing every half-an image duration.
+% 2005.06.15 SOD: changed for OSX - stimulus presentation will now be 
+%                 time-based rather than frame based. Because of bugs
+%                 with framerate estimations.
+
+% 2009.09.27 BMH: Set up for contour integration stimuli
+
+%Contour stimulus parameters
+%contourOrientation=params.contour.contourOrientation; %Contour orientation relative to bars. 0 is parrallel to bars
+%contourSF=1/3; %Contour spatial frequence, in degrees (1/3=3 cycles per degree)
+%contourBandpass=params.contour.contourBandpass; %Contour orientation bandpass, in degrees
+pauseDurationMin=4;%In TRs
+pauseDurationMax=8;%In TRs
+differentImages=6;
+
+flipUpDown=1; %Flip images up-down to compensate for scanner projector
+
+
+%10 short onsets
+% imageOff=0.1;   %Time between image presentations in the same TR
+% imageOn=0.1;
+% fadeLength=0;
+% imageShows=10;
+
+% %5 onsets, short off
+% imageOff=0.2;   %Time between image presentations in the same TR
+% imageOn=0.2;
+% fadeLength=0;
+% imageShows=5;
+% 
+% %4 onsets, short off
+% imageOff=0.1;   %Time between image presentations in the same TR
+% imageOn=0.4;
+% fadeLength=0;
+% imageShows=4;
+% 
+%3 onsets, short fade
+% imageOff=0.1;   %Time between image presentations in the same TR
+% imageOn=0.3;
+% fadeLength=0.15;
+% imageShows=3;
+% 
+% %2 onsets, long fade
+% imageOff=0.2;   %Time between image presentations in the same TR
+% imageOn=0.3;
+% fadeLength=0.3;
+% imageShows=2;
+
+imageOff=params.naturalimage.imageOff;   %Time between image presentations in the same TR
+imageOn=params.naturalimage.imageOn;
+fadeLength=params.naturalimage.fadeLength;
+imageShows=params.naturalimage.imageShows;
+
+cycleTotal=params.tr+imageOff;
+onOffTotal=single(imageOn+imageOff+fadeLength*2);
+if onOffTotal*imageShows~=single(cycleTotal)
+    if onOffTotal*imageShows==single(params.tr)
+        fprintf('WARNING: TIMING ENDS IN OFF PERIOD OF CYCLE.\n');
+    else
+        fprintf('WARNING: TIMING PARAMETERS DO NOT ADD UP.\n');
+    end
+end
+
+% load('/Users/student/Documents/Martijn/retintopimg.mat','-mat');
+% 
+% disp(sprintf('[%s]:resizing images to 768x768.',mfilename));
+% for i = 1:length(naturalimg)
+%     naturalimg(i).image = imresize(mat2gray(naturalimg(i).image,[0 255]),[768 768]);
+% end
+% 
+% save('/Users/student/Documents/Martijn/retintopimg(768).mat','naturalimg');
+
+global naturalimg;
+
+if isempty(naturalimg)
+    disp(sprintf('[%s]: loading natural images.',mfilename));
+    load('/Users/lab/Documents/MATLAB/MRstim/trunk/Retinotopy/naturalimg.mat','-mat');
+end
+
+
+% various time measurements:
+duration.stimframe          = 1./params.temporal.frequency./params.temporal.motionSteps;
+duration.scan.seconds       = params.ncycles*params.period;
+duration.scan.stimframes    = params.ncycles*params.period./duration.stimframe;
+duration.cycle.seconds      = params.period;
+duration.cycle.stimframes   = params.period./duration.stimframe;
+duration.prescan.seconds    = params.prescanDuration;
+duration.prescan.stimframes = params.prescanDuration./duration.stimframe;
+
+
+% load matrix or make it
+if ~isempty(params.loadMatrix),
+    % we should really put some checks that the matrix loaded is
+    % appropriate etc.
+    load(params.loadMatrix);
+    halfNumImages = params.numImages./2;
+    disp(sprintf('[%s]:loading images from %s.',mfilename,params.loadMatrix));
+%    disp(sprintf('[%s]:size stimulus: %dx%d pixels.',mfilename,n,m));
+else
+    outerRad = params.radius;
+    innerRad = params.innerRad;
+
+
+    halfNumImages = params.numImages;
+
+
+    %%% Set check colormap indices %%%
+    %bk = findName(params.display.reservedColor,'background');
+    %minCmapVal = max([params.display.reservedColor(:).fbVal])+1;
+    %maxCmapVal = params.display.numColors-1;
+    bk = params.display.backColorIndex;
+    
+    
+    minCmapVal = min([params.display.stimRgbRange]);
+    maxCmapVal = max([params.display.stimRgbRange]);
+
+
+    %%% Initialize image template %%%
+    m=angle2pix(params.display,2*outerRad); 
+    n=angle2pix(params.display,2*outerRad);
+
+    % Loop that creates the final images
+    %images=zeros(m,n,length(naturalimg)+1,'uint8');
+    
+    %Randomize image presentation order
+    
+    presentationsPerImage=duration.scan.seconds/(params.tr+params.tr*mean([pauseDurationMin pauseDurationMax]))/differentImages; 
+    if uint8(presentationsPerImage)~=presentationsPerImage;
+        fprintf('WARNING: UNEVEN NUMBER OF PRESENTAITONS PER IMAGES. STIMULUS DURATION SHOULD BE PRESCAN+14*IMAGES*REPETITIONS.\n');
+    end
+    
+    imageShowOrder=[];
+    for ii=1:presentationsPerImage
+        imageShowCycle=1:differentImages;
+        tmp=rand(1,length(imageShowCycle));
+        [tmp index]=sort(tmp);
+        imageShowCycle=imageShowCycle(index);
+        imageShowOrder=[imageShowOrder imageShowCycle];        
+    end    
+    
+    waitPeriodOrder=1:5;
+    reps=differentImages*presentationsPerImage/5;
+    repInt=floor(reps);
+    repRemainder=(reps-repInt)*5; 
+    waitPeriodOrder=repmat(waitPeriodOrder, 1,repInt);
+    if repRemainder>0
+        waitPeriodOrder=[waitPeriodOrder 3.*ones(1,uint8(repRemainder))];   
+    end
+    temp=rand(1,length(waitPeriodOrder));
+    [temp waitIndex]=sort(temp);
+    waitPeriodOrder=waitPeriodOrder(waitIndex);
+    waitPeriodOrder=waitPeriodOrder+3;
+    
+    fprintf('Image display order:');
+    imageShowOrder
+    fprintf('Pause interval order (in TRs):');
+    waitPeriodOrder
+   
+    
+    for ii=1:differentImages
+        if flipUpDown==1
+            images(:,:,ii)=flipud(naturalimg(ii).image);
+        else
+            images(:,:,ii)=naturalimg(ii).image;
+        end
+    end
+    fadeLength=uint8(fadeLength/duration.stimframe);
+    if fadeLength>0
+        fadeStrength=linspace(0,1,fadeLength+2);
+        
+        for ff=1:fadeLength
+            for ii=1:differentImages
+                if flipUpDown==1
+                    tmp=flipud(naturalimg(ii).image);
+                    
+                else
+                    tmp=naturalimg(ii).image;
+                end
+                tmp=tmp-128;
+                tmp=tmp*fadeStrength(ff+1);
+                tmp=tmp+128;
+                images(:,:,ii+ff*differentImages)=tmp;
+             end
+        end
+    end
+    
+    images(:,:,size(images,3)+1)=bk*ones(size(images(:,:,1)));
+
+
+
+    fprintf('Done.\n');
+end;
+imageOn=uint8(imageOn/duration.stimframe);
+imageOff=uint8(imageOff/duration.stimframe);
+
+
+%imageOff=imageOff/duration.stimframe;
+%imageOn=onPeriod/imageShows-imageOff;
+sequence=[];
+
+
+for ii=1:length(imageShowOrder)
+    cycleSequence=[];
+    if fadeLength>0
+        for ff=1:fadeLength
+            cycleSequence=[cycleSequence (differentImages*(ff))+imageShowOrder(ii)];
+        end
+    end
+            
+    for ff=1:imageOn
+        cycleSequence=[cycleSequence imageShowOrder(ii)];
+    end
+    
+    if fadeLength>0
+        for ff=1:fadeLength
+            cycleSequence=[cycleSequence (differentImages*(fadeLength-(ff-1)))+imageShowOrder(ii)];
+        end
+    end   
+    
+    for ff=1:imageOff
+        cycleSequence=[cycleSequence size(images,3)];
+    end
+    
+    cycleSequence=repmat(cycleSequence, 1,imageShows);
+    cycleSequence=cycleSequence(1:params.tr/duration.stimframe);
+    
+    for ff=1:waitPeriodOrder(ii)*(params.tr/duration.stimframe)
+        cycleSequence=[cycleSequence size(images,3)];
+    end
+%     for jj=1:imageShows
+%         startFrame=1+((jj-1)*(imageOn+imageOff));
+%         cycleSequence(startFrame:startFrame+imageOn)=ii;
+%         cycleSequence(startFrame+imageOn+1:startFrame+imageOn+imageOff)=length(naturalimg)+1;
+%     end
+%     offFrame=startFrame+imageOn+imageOff+1;
+%     cycleSequence(offFrame:offFrame+offPeriod)=length(naturalimg)+1;
+    sequence=[sequence cycleSequence];
+end
+    
+
+% fixation dot sequence
+% change on the fastest every 6 seconds
+minsec = 1.8./duration.stimframe;
+fixSeq = ones(minsec,1)*round(rand(1,ceil(length(sequence)/minsec)));
+fixSeq = fixSeq(:)+1;
+fixSeq = fixSeq(1:length(sequence));
+% % force binary
+fixSeq(fixSeq>2)=2; 
+fixSeq(fixSeq<1)=1;
+
+
+% Insert the preappend images by copying some images from the
+% end of the seq and tacking them on at the beginning
+fprintf('First image blank.\n');
+sequence = [ones(1,duration.prescan.stimframes).*size(images,3) sequence];
+timing   = [0:length(sequence)-1]'.*duration.stimframe;
+cmap     = params.display.gammaTable;
+fixSeq   = [fixSeq(length(fixSeq)+1-duration.prescan.stimframes:end); fixSeq];
+
+
+% make stimulus structure for output
+stimulus = createStimulusStruct(images,cmap,sequence,[],timing,fixSeq);
+
+% save matrix if requested
+if ~isempty(params.saveMatrix),
+    save(params.saveMatrix,'images');
+end;
+
