@@ -1,0 +1,19 @@
+*.pyc
+*~
+
+# OS generated files #
+######################
+.gdb_history
+.DS_Store?
+ehthumbs.db
+Icon?
+Thumbs.db
+
+# Things specific to this project #
+###################################
+__config__.py
+doc/api/generated
+doc/build/
+doc/manual
+cythonize.dat
+.coverage
