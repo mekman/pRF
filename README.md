@@ -4,7 +4,7 @@ A collection of pRF scripts. The code was used for the pRF-mapping in:
 
 * Ekman, Kok & de Lange (2017). Time-compressed preplay of anticipated events in human primary visual cortex. *Nature Communications*. 8, 15276 doi: 10.1038/ncomms15276 https://www.nature.com/articles/ncomms15276
 
-* Ekman, Roelfsema & de Lange (in prep). Automatic spread of the attentional field from a spatial cue to an underlying object in primary visual cortex.
+* Ekman, Roelfsema & de Lange (in prep). Object selection by automatic spreading of top-down attentional signals in V1.
 
 
 
